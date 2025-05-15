@@ -767,3 +767,4 @@ if token is None:
     print("Error: Could not read token from .env file")
 else:
     bot.run(token)
+#test
