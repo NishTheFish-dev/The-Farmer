@@ -1,0 +1,48 @@
+{
+  "users": {
+    "292112424520384514": {
+      "last_rolled": 1747275820.1242638,
+      "inventory": {
+        "wheat": 0,
+        "potato": 0,
+        "carrot": 0,
+        "rice": 0,
+        "apple": 0,
+        "orange": 0,
+        "kiwi": 0,
+        "melon": 0
+      },
+      "seeds": {
+        "wheat_seed": 1,
+        "potato_seed": 0,
+        "rice_seed": 0,
+        "carrot_seed": 0,
+        "apple_seed": 0,
+        "orange_seed": 0,
+        "kiwi_seed": 0,
+        "melon_seed": 0
+      },
+      "plantings": {
+        "292112424520384514-1747276990420-0": {
+          "seed_type": "rice_seed",
+          "start_time": 1747276990.4207463,
+          "duration": 50,
+          "amount": 1
+        },
+        "292112424520384514-1747276995358-0": {
+          "seed_type": "potato_seed",
+          "start_time": 1747276995.3580973,
+          "duration": 40,
+          "amount": 1
+        },
+        "292112424520384514-1747276995358-1": {
+          "seed_type": "potato_seed",
+          "start_time": 1747276995.3580973,
+          "duration": 40,
+          "amount": 1
+        }
+      },
+      "balance": 0
+    }
+  }
+}
