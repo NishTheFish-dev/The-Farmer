@@ -7,13 +7,6 @@ import random
 import os
 from dotenv import load_dotenv
 
-# Debug prints
-print("Current working directory:", os.getcwd())
-print("Checking if .env exists:", os.path.exists('.env'))
-if os.path.exists('.env'):
-    with open('.env', 'r', encoding='utf-8') as f:
-        print("Contents of .env:", f.read())
-
 # Load environment variables
 load_dotenv()
 
@@ -767,4 +760,3 @@ if token is None:
     print("Error: Could not read token from .env file")
 else:
     bot.run(token)
-#test
