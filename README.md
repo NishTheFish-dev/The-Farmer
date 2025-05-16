@@ -1,6 +1,6 @@
 # The Farmer
 
-A Discord bot that lets you experience the wonders of farming. 
+A Discord bot that lets you experience the wonders of farming!  
 
 ## Features
 
