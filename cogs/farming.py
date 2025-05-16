@@ -19,6 +19,68 @@ class Farming(commands.Cog):
         self.bot = bot
 
     @commands.command()
+    async def set(self, ctx, biome: str = None):
+        """Set your preferred biome for planting"""
+        if not biome:
+            await ctx.send(embed=error_embed(
+                "❌ Missing Arguments",
+                "**Usage:** `!set <biome>`\nExample: `!set grassland`"
+            ))
+            return
+
+        biome = biome.lower()
+        if biome not in BiomeConfig.BIOMES:
+            await ctx.send(embed=error_embed(
+                "❌ Invalid Biome",
+                f"Available biomes:\n" + 
+                "\n".join([f"{BiomeConfig.BIOMES[b]['emoji']} {b}" for b in BiomeConfig.BIOMES.keys()])
+            ))
+            return
+
+        user_id = str(ctx.author.id)
+        data = load_data()
+        user = get_user_data(user_id, data)
+
+        # Check if biome is unlocked
+        if not user["biomes"][biome]["unlocked"] and biome != "grassland":
+            await ctx.send(embed=error_embed(
+                "🔒 Biome Locked",
+                f"You haven't unlocked the {biome} biome yet!\nUse `!shop biomes` to view unlock costs."
+            ))
+            return
+
+        user["preferred_biome"] = biome
+        save_data(data)
+
+        await ctx.send(embed=success_embed(
+            f"{BiomeConfig.BIOMES[biome]['emoji']} Biome Set",
+            f"Your preferred biome has been set to {biome}.\nYou can now use `!plant <seed> [amount]` without specifying the biome!"
+        ))
+
+    @commands.command()
+    async def unset(self, ctx):
+        """Remove your preferred biome setting"""
+        user_id = str(ctx.author.id)
+        data = load_data()
+        user = get_user_data(user_id, data)
+
+        if user["preferred_biome"] is None:
+            await ctx.send(embed=error_embed(
+                "❌ No Biome Set",
+                "You don't have a preferred biome set!"
+            ))
+            return
+
+        old_biome = user["preferred_biome"]
+        user["preferred_biome"] = None
+        save_data(data)
+
+        await ctx.send(embed=success_embed(
+            "🔄 Biome Unset",
+            f"Your preferred biome ({old_biome}) has been unset.\nYou'll need to specify the biome when using `!plant` again."
+        ))
+
+    @commands.command()
     async def roll(self, ctx):
         """Roll for seeds"""
         user_id = str(ctx.author.id)
@@ -28,9 +90,9 @@ class Farming(commands.Cog):
         user = get_user_data(user_id, data)
         time_since_last = now - user["last_rolled"]
 
-        # 3 second cooldown
-        if time_since_last < 3:
-            remaining = 3 - time_since_last
+        # 1 second cooldown
+        if time_since_last < 1:
+            remaining = 1 - time_since_last
             await ctx.send(embed=error_embed(
                 "⏳ Rolling Cooldown",
                 f"You need to wait {int(remaining)} seconds!"
@@ -48,20 +110,42 @@ class Farming(commands.Cog):
         ))
 
     @commands.command()
-    async def plant(self, ctx, biome: str = None, seed_type: str = None, amount: int = None):
+    async def plant(self, ctx, arg1: str = None, arg2: str = None, arg3: int = None):
         """Plant seeds in a biome"""
         user_id = str(ctx.author.id)
         data = load_data()
         now = time.time()
         
+        user = get_user_data(user_id, data)
+        # Handle case where preferred_biome doesn't exist in user data
+        preferred_biome = user.get("preferred_biome")
+
+        # Parse arguments based on whether a preferred biome is set
+        if preferred_biome is not None:
+            # If preferred biome is set, first arg is seed type
+            seed_type = arg1
+            amount = arg2
+            biome = preferred_biome
+            if amount is not None:
+                try:
+                    amount = int(amount)
+                except ValueError:
+                    amount = None
+        else:
+            # If no preferred biome, first arg is biome
+            biome = arg1
+            seed_type = arg2
+            amount = arg3
+
         if not biome or not seed_type:
+            usage = "`!plant <seed> [amount]`" if preferred_biome else "`!plant <biome> <seed> [amount]`"
+            example = f"`!plant wheat 2`" if preferred_biome else "`!plant grassland wheat 2`"
             await ctx.send(embed=error_embed(
                 "❌ Missing Arguments",
-                "**Usage:** `!plant <biome> <seed> [amount]`\nExample: `!plant grassland wheat 2`"
+                f"**Usage:** {usage}\nExample: {example}"
             ))
             return
 
-        user = get_user_data(user_id, data)
         biome = biome.lower()
         seed_type = seed_type.lower() + "_seed"
 
@@ -156,8 +240,14 @@ class Farming(commands.Cog):
         now = time.time()
 
         user = get_user_data(user_id, data)
+        # Handle case where preferred_biome doesn't exist in user data
+        preferred_biome = user.get("preferred_biome")
 
-        # If no biome specified, show overview
+        # If no biome specified, try to use preferred biome
+        if not biome and preferred_biome:
+            biome = preferred_biome
+
+        # If still no biome specified, show overview
         if not biome:
             embed = discord.Embed(
                 title=f"🌱 {ctx.author.display_name}'s Gardens Overview",
@@ -169,16 +259,20 @@ class Farming(commands.Cog):
                 if user["biomes"][biome_name]["unlocked"]:
                     active_plantings = len(user["plantings"][biome_name])
                     capacity = user["biomes"][biome_name]["capacity"]
+                    is_preferred = biome_name == preferred_biome
+                    prefix = "✨ " if is_preferred else ""
                     embed.add_field(
-                        name=f"{biome_data['emoji']} {biome_name.title()}",
+                        name=f"{prefix}{biome_data['emoji']} {biome_name.title()}",
                         value=f"`!garden {biome_name}`\n{active_plantings}/{capacity} plots used",
                         inline=True
                     )
                 elif biome_name == "grassland":
                     capacity = user["biomes"][biome_name]["capacity"]
                     active_plantings = len(user["plantings"][biome_name])
+                    is_preferred = biome_name == preferred_biome
+                    prefix = "✨ " if is_preferred else ""
                     embed.add_field(
-                        name=f"{biome_data['emoji']} {biome_name.title()}",
+                        name=f"{prefix}{biome_data['emoji']} {biome_name.title()}",
                         value=f"`!garden {biome_name}`\n{active_plantings}/{capacity} plots used",
                         inline=True
                     )
@@ -188,6 +282,9 @@ class Farming(commands.Cog):
                         value="🔒 Locked\nUnlock in shop: `!shop biomes`",
                         inline=True
                     )
+            
+            if preferred_biome:
+                embed.set_footer(text=f"✨ = Preferred Biome ({preferred_biome})")
             
             await ctx.send(embed=embed)
             return

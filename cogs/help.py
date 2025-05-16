@@ -17,7 +17,9 @@ class Help(commands.Cog):
 
         # Basic Commands
         basic_commands = (
-            "`!roll` - Get random seeds (3s cooldown)\n"
+            "`!roll` - Get random seeds (1s cooldown)\n"
+            "`!set <biome>` - Set your preferred biome for planting\n"
+            "`!unset` - Remove your preferred biome setting\n"
             "`!plant <biome> <seed> [amount]` - Plant seeds in a biome\n"
             "  Example: `!plant grassland wheat 2`\n"
             "`!garden [biome]` - View your gardens or a specific biome\n"

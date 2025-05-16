@@ -100,23 +100,23 @@ class SeedConfig:
     SEEDS = {
         "common": {
             "seeds": ["wheat_seed", "potato_seed"],
-            "chance": 80
+            "chance": 60
         },
         "uncommon": {
             "seeds": ["carrot_seed", "rice_seed"],
-            "chance": 15
+            "chance": 25
         },
         "rare": {
             "seeds": ["apple_seed", "orange_seed"],
-            "chance": 3.25
+            "chance": 10
         },
         "epic": {
             "seeds": ["kiwi_seed"],
-            "chance": 1.25
+            "chance": 3.75
         },
         "legendary": {
             "seeds": ["melon_seed"],
-            "chance": 0.5
+            "chance": 1.25
         }
     }
 

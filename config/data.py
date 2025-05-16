@@ -22,6 +22,7 @@ class DataConfig:
         
         return {
             "last_rolled": 0,
+            "preferred_biome": None,
             "inventory": {
                 crop: {"amount": 0, "mutations": {}} 
                 for tier in CropConfig.CROPS.values() 
