@@ -35,7 +35,14 @@ A Discord bot that lets you experience the wonders of farming!
 
 ## Version History
 
-### Version 1.0.0 (Current)
+### Version 1.1.0 (Current)
+- Added `!set` and `!unset` commands for preferred biome management
+- Updated loot tables for better game balance
+- Quality of life improvements for planting commands
+  - Use `!plant <seed> [amount]` with preferred biome
+  - Garden overview shows preferred biome with ✨ indicator
+
+### Version 1.0.0
 - Initial release with core farming mechanics
 - Basic economy system
 - Multiple biomes (Grassland, Desert, Tundra, Wetlands, Hell)
