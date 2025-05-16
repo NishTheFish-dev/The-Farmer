@@ -1,0 +1,69 @@
+import discord
+from discord import Embed, ButtonStyle
+from discord.ext import commands
+from discord.ui import Button, View
+import json
+import time
+import random
+import os
+from dotenv import load_dotenv
+from config import (
+    Colors,
+    GameConstants,
+    ShopConfig,
+    BiomeConfig,
+    SeedConfig,
+    CropConfig,
+    MutationConfig,
+    EmojiConfig,
+    DataConfig
+)
+from utils.database import load_data, save_data, get_user_data
+
+# Load environment variables
+load_dotenv()
+
+# Get token directly from .env file
+def get_token():
+    try:
+        with open('.env', 'r', encoding='utf-8') as f:
+            content = f.read().strip()
+            if '=' in content:
+                return content.split('=')[1].strip()
+    except Exception as e:
+        print(f"Error reading token: {e}")
+    return None
+
+# Initialize bot with proper permissions
+intents = discord.Intents.default()
+intents.members = True
+intents.messages = True
+intents.message_content = True
+bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)  # Disable default help command
+
+# Event: Bot is ready
+@bot.event
+async def on_ready():
+    print(f'Logged in as {bot.user.name} (ID: {bot.user.id})')
+    print('------')
+
+def get_random_seed():
+    roll = random.uniform(0, 100)
+    cumulative = 0
+    selected_tier = None
+    
+    for tier, values in SeedConfig.SEEDS.items():
+        cumulative += values["chance"]
+        if roll <= cumulative:
+            selected_tier = tier
+            break
+    
+    seed = random.choice(SeedConfig.SEEDS[selected_tier]["seeds"])
+    return seed, 1, selected_tier
+
+# Run the bot
+token = get_token()
+if token is None:
+    print("Error: Could not read token from .env file")
+else:
+    bot.run(token)
