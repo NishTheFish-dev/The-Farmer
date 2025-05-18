@@ -120,6 +120,37 @@ class Farming(commands.Cog):
         # Handle case where preferred_biome doesn't exist in user data
         preferred_biome = user.get("preferred_biome")
 
+        # Handle "plant all" command
+        if arg1 and arg1.lower() == "all":
+            if preferred_biome:
+                await self.plant_all_seeds(ctx, preferred_biome, user, data, now)
+            else:
+                await ctx.send(embed=error_embed(
+                    "❌ No Biome Set",
+                    "You need to set a preferred biome with `!set <biome>` first!"
+                ))
+            return
+        elif arg2 and arg2.lower() == "all":
+            biome = arg1.lower()
+            if biome not in BiomeConfig.BIOMES:
+                await ctx.send(embed=error_embed(
+                    "❌ Invalid Biome",
+                    f"Available biomes:\n" + 
+                    "\n".join([f"{BiomeConfig.BIOMES[b]['emoji']} {b}" for b in BiomeConfig.BIOMES.keys()])
+                ))
+                return
+            
+            # Check if biome is unlocked
+            if not user["biomes"][biome]["unlocked"] and biome != "grassland":
+                await ctx.send(embed=error_embed(
+                    "🔒 Biome Locked",
+                    f"You haven't unlocked the {biome} biome yet!\nUse `!shop biomes` to view unlock costs."
+                ))
+                return
+                
+            await self.plant_all_seeds(ctx, biome, user, data, now)
+            return
+
         # Parse arguments based on whether a preferred biome is set
         if preferred_biome is not None:
             # If preferred biome is set, first arg is seed type
@@ -530,6 +561,70 @@ class Farming(commands.Cog):
                 del user["plantings"][biome][planting_id]
         
         return harvested
+
+    async def plant_all_seeds(self, ctx, biome: str, user_data: dict, data: dict, now: float):
+        """Plant all available seeds in a biome, prioritizing rarest seeds first"""
+        # Get available planter capacity
+        used_capacity = len(user_data["plantings"][biome])
+        current_capacity = user_data["biomes"][biome]["capacity"]
+        remaining_capacity = current_capacity - used_capacity
+
+        if remaining_capacity <= 0:
+            await ctx.send(embed=error_embed(
+                "❌ No Space Available",
+                f"Your {biome} planters are full! Use `!harvest {biome}` to free up space."
+            ))
+            return
+
+        # Get all seed types sorted by rarity (legendary to common)
+        rarity_order = ["legendary", "epic", "rare", "uncommon", "common"]
+        all_seeds = []
+        for rarity in rarity_order:
+            all_seeds.extend(SeedConfig.SEEDS[rarity]["seeds"])
+
+        # Track what we're going to plant
+        to_plant = []
+        spaces_used = 0
+
+        # Try to plant seeds in order of rarity
+        for seed_type in all_seeds:
+            if spaces_used >= remaining_capacity:
+                break
+
+            available_seeds = user_data["seeds"].get(seed_type, 0)
+            if available_seeds > 0:
+                plant_amount = min(available_seeds, remaining_capacity - spaces_used)
+                if plant_amount > 0:
+                    # Generate unique IDs for each planting
+                    for _ in range(plant_amount):
+                        planting_id = f"{ctx.author.id}-{now}-{spaces_used}"
+                        user_data["plantings"][biome][planting_id] = {
+                            "seed_type": seed_type,
+                            "start_time": now,
+                            "duration": SeedConfig.PLANT_TIMES[seed_type],
+                            "amount": 1
+                        }
+                        spaces_used += 1
+                    
+                    # Update seed count
+                    user_data["seeds"][seed_type] -= plant_amount
+                    to_plant.append(f"{EmojiConfig.EMOJI_MAP[seed_type]} {seed_type.replace('_seed', '').title()}: {plant_amount}")
+
+        if not to_plant:
+            await ctx.send(embed=error_embed(
+                "❌ No Seeds Available",
+                "You don't have any seeds to plant!"
+            ))
+            return
+
+        save_data(data)
+        
+        # Send success message
+        await ctx.send(embed=success_embed(
+            f"{BiomeConfig.BIOMES[biome]['emoji']} Mass Planting Success!",
+            f"Successfully planted in {biome}:\n" + "\n".join(to_plant) +
+            f"\n\nPlots used: {spaces_used}/{remaining_capacity}"
+        ))
 
 async def setup(bot):
     await bot.add_cog(Farming(bot)) 

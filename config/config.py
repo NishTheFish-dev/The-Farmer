@@ -111,11 +111,11 @@ class SeedConfig:
             "chance": 10
         },
         "epic": {
-            "seeds": ["kiwi_seed"],
+            "seeds": ["kiwi_seed", "banana_seed", "starfruit_seed"],
             "chance": 3.75
         },
         "legendary": {
-            "seeds": ["melon_seed"],
+            "seeds": ["melon_seed", "grape_seed"],
             "chance": 1.25
         }
     }
@@ -128,7 +128,10 @@ class SeedConfig:
         "apple_seed": 120,
         "orange_seed": 150,
         "kiwi_seed": 240,
-        "melon_seed": 360
+        "melon_seed": 360,
+        "banana_seed": 220,
+        "starfruit_seed": 250,
+        "grape_seed": 380
     }
 
 # Crop configuration
@@ -153,13 +156,13 @@ class CropConfig:
             "chance": 3.25
         },
         "epic": {
-            "crops": ["kiwi"],
+            "crops": ["kiwi", "banana", "starfruit"],
             "base_yield": 1,
             "max_extra": 2,
             "chance": 1.25
         },
         "legendary": {
-            "crops": ["melon"],
+            "crops": ["melon", "grape"],
             "base_yield": 1,
             "max_extra": 2,
             "chance": 0.5
@@ -174,7 +177,10 @@ class CropConfig:
         "apple": 10,
         "orange": 15,
         "kiwi": 25,
-        "melon": 50
+        "melon": 50,
+        "banana": 30,
+        "starfruit": 40,
+        "grape": 75
     }
 
 # Mutation configuration
@@ -204,6 +210,9 @@ class EmojiConfig:
         "orange": "🍊",
         "kiwi": "🥝",
         "melon": "🍈",
+        "banana": "🍌",
+        "starfruit": "⭐",
+        "grape": "🍇",
 
         # Seeds
         "wheat_seed": "🌾",
@@ -213,5 +222,8 @@ class EmojiConfig:
         "apple_seed": "🍎",
         "orange_seed": "🍊",
         "kiwi_seed": "🥝",
-        "melon_seed": "🍈"
+        "melon_seed": "🍈",
+        "banana_seed": "🍌",
+        "starfruit_seed": "⭐",
+        "grape_seed": "🍇"
     } 
