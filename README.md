@@ -78,11 +78,10 @@ A Discord bot that lets you experience the wonders of farming!
 
 ## Future Plans
 
-- More biomes and crop varieties
+- More crops for the other biomes
 - Daily rewards and quests
 - XP system and Skill tree
-- Seasonal events
-- Farm customization options
+- Random events
 
 ## Contributing
 
