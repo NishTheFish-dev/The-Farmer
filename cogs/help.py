@@ -22,6 +22,9 @@ class Help(commands.Cog):
             "`!unset` - Remove your preferred biome setting\n"
             "`!plant <biome> <seed> [amount]` - Plant seeds in a biome\n"
             "  Example: `!plant grassland wheat 2`\n"
+            "`!plant <biome> all` - Plant all seeds in order of rarity\n"
+            "  Example: `!plant grassland all`\n"
+            "`!plant all` - Plant all seeds in preferred biome\n"
             "`!garden [biome]` - View your gardens or a specific biome\n"
             "`!harvest [biome]` - Harvest all ready crops or from specific biome"
         )
@@ -36,8 +39,9 @@ class Help(commands.Cog):
             "`!shop` - View the main shop\n"
             "`!shop items` - View available items\n"
             "`!shop biomes` - View available biomes\n"
-            "`!shop biomes <n>` - View specific biome upgrades\n"
+            "`!shop biomes <biome>` - View specific biome upgrades\n"
             "`!buy item <name>` - Purchase an item\n"
+            "  Example: `!buy item watering_can`\n"
             "`!buy <biome>` - Unlock a new biome\n"
             "`!buy <biome> capacity` - Upgrade biome capacity"
         )
@@ -47,12 +51,22 @@ class Help(commands.Cog):
             inline=False
         )
 
+        # Items & Effects
+        items_commands = (
+            "`!use <item>` - Use an item from your inventory\n"
+            "  Example: `!use watering_can`\n"
+            "`!effects` - View your active effects\n"
+        )
+        embed.add_field(
+            name="🎒 Items & Effects",
+            value=items_commands,
+            inline=False
+        )
+
         # Inventory & Economy
         inventory_commands = (
             "`!inventory` or `!inv` - View your inventory\n"
             "`!inv @User` - View another user's inventory\n"
-            "`!use <item>` - Use an item from your inventory\n"
-            "`!effects` - View your active effects\n"
             "`!sell <crop> <amount>` - Sell specific crops\n"
             "  Example: `!sell wheat 5`\n"
             "`!sell` - Sell all crops at once"
