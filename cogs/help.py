@@ -34,8 +34,10 @@ class Help(commands.Cog):
         # Shop & Upgrades
         shop_commands = (
             "`!shop` - View the main shop\n"
+            "`!shop items` - View available items\n"
             "`!shop biomes` - View available biomes\n"
-            "`!shop biomes <name>` - View specific biome upgrades\n"
+            "`!shop biomes <n>` - View specific biome upgrades\n"
+            "`!buy item <name>` - Purchase an item\n"
             "`!buy <biome>` - Unlock a new biome\n"
             "`!buy <biome> capacity` - Upgrade biome capacity"
         )
@@ -49,6 +51,8 @@ class Help(commands.Cog):
         inventory_commands = (
             "`!inventory` or `!inv` - View your inventory\n"
             "`!inv @User` - View another user's inventory\n"
+            "`!use <item>` - Use an item from your inventory\n"
+            "`!effects` - View your active effects\n"
             "`!sell <crop> <amount>` - Sell specific crops\n"
             "  Example: `!sell wheat 5`\n"
             "`!sell` - Sell all crops at once"

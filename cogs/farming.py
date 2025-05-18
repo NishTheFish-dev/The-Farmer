@@ -10,13 +10,91 @@ from config import (
     MutationConfig,
     EmojiConfig,
     Colors,
-    GameConstants
+    GameConstants,
+    ItemConfig
 )
 from utils.embeds import error_embed, success_embed, confirmation_embed
 
 class Farming(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+
+    def get_active_effects(self, user_data: dict, now: float) -> dict:
+        """Get all active effects and clean up expired ones"""
+        if "active_effects" not in user_data:
+            user_data["active_effects"] = {}
+        
+        # Clean up expired effects
+        expired = []
+        for effect_id, effect in user_data["active_effects"].items():
+            if now > effect["end_time"]:
+                expired.append(effect_id)
+        
+        for effect_id in expired:
+            del user_data["active_effects"][effect_id]
+        
+        return user_data["active_effects"]
+
+    def get_current_luck_factor(self, user_data: dict, now: float) -> float:
+        """Calculate current luck factor based on active effects"""
+        luck_factor = GameConstants.BASE_LUCK_FACTOR
+        active_effects = self.get_active_effects(user_data, now)
+        
+        for effect in active_effects.values():
+            if effect["type"] == "luck_boost":
+                luck_factor *= effect["multiplier"]
+        
+        return luck_factor
+
+    def get_growth_speed_multiplier(self, user_data: dict, now: float) -> float:
+        """Calculate current growth speed multiplier based on active effects"""
+        multiplier = 1.0
+        active_effects = self.get_active_effects(user_data, now)
+        
+        # For growth speed, we only care if there's at least one active effect
+        # This makes it dynamic regardless of when crops were planted
+        for effect in active_effects.values():
+            if effect["type"] == "growth_speed":
+                multiplier = max(multiplier, effect["multiplier"])
+                break
+        
+        return multiplier
+
+    def has_active_fertilizer(self, user_data: dict, now: float) -> bool:
+        """Check if there's an active fertilizer effect"""
+        active_effects = self.get_active_effects(user_data, now)
+        for effect in active_effects.values():
+            if effect["type"] == "yield_boost":
+                return True
+        return False
+
+    def get_yield_multiplier(self, user_data: dict, now: float, is_fertilized: bool = False) -> float:
+        """Calculate current yield multiplier based on active effects and fertilized status"""
+        multiplier = 1.0
+        
+        # If the crop was fertilized when planted, always apply the fertilizer multiplier
+        if is_fertilized:
+            # Get the fertilizer multiplier from config
+            fertilizer_multiplier = ItemConfig.ITEMS["fertilizer"]["effect"]["multiplier"]
+            multiplier *= fertilizer_multiplier
+        
+        # Check for other active yield effects
+        active_effects = self.get_active_effects(user_data, now)
+        for effect in active_effects.values():
+            if effect["type"] == "yield_boost":
+                multiplier *= effect["multiplier"]
+        
+        return multiplier
+
+    def calculate_growth_progress(self, planting: dict, now: float, growth_multiplier: float) -> float:
+        """Calculate growth progress for a planting, accounting for dynamic growth speed"""
+        base_duration = planting["duration"]
+        elapsed = now - planting["start_time"]
+        
+        # Apply current growth multiplier to elapsed time
+        effective_elapsed = elapsed * growth_multiplier
+        
+        return effective_elapsed / base_duration
 
     @commands.command()
     async def set(self, ctx, biome: str = None):
@@ -120,10 +198,13 @@ class Farming(commands.Cog):
         # Handle case where preferred_biome doesn't exist in user data
         preferred_biome = user.get("preferred_biome")
 
+        # Check for active fertilizer effect
+        is_fertilized = self.has_active_fertilizer(user, now)
+
         # Handle "plant all" command
         if arg1 and arg1.lower() == "all":
             if preferred_biome:
-                await self.plant_all_seeds(ctx, preferred_biome, user, data, now)
+                await self.plant_all_seeds(ctx, preferred_biome, user, data, now, is_fertilized)
             else:
                 await ctx.send(embed=error_embed(
                     "❌ No Biome Set",
@@ -148,7 +229,7 @@ class Farming(commands.Cog):
                 ))
                 return
                 
-            await self.plant_all_seeds(ctx, biome, user, data, now)
+            await self.plant_all_seeds(ctx, biome, user, data, now, is_fertilized)
             return
 
         # Parse arguments based on whether a preferred biome is set
@@ -246,7 +327,8 @@ class Farming(commands.Cog):
                 "seed_type": seed_type,
                 "start_time": now,
                 "duration": SeedConfig.PLANT_TIMES[seed_type],
-                "amount": 1
+                "amount": 1,
+                "is_fertilized": is_fertilized  # Mark if planted during fertilizer effect
             }
 
         # Update seeds inventory
@@ -256,11 +338,17 @@ class Farming(commands.Cog):
         # Calculate updated capacity after planting
         updated_used_capacity = len(user["plantings"][biome])
 
+        # Add fertilizer status to message if active
+        status_msg = ""
+        if is_fertilized:
+            status_msg = "\nPlanted with Fertilizer effect active!"
+
         await ctx.send(embed=success_embed(
             f"{BiomeConfig.BIOMES[biome]['emoji']} Planting Started!",
             f"Planting {plant_amount} {seed_type.replace('_seed', '')} seed{'s' if plant_amount > 1 else ''} in {biome}\n" +
-            f"Plots used: {updated_used_capacity}/{current_capacity}\n" +
-            f"Use `!garden {biome}` to track your plantings"
+            f"Plots used: {updated_used_capacity}/{current_capacity}" +
+            status_msg +
+            f"\nUse `!garden {biome}` to track your plantings"
         ))
 
     @commands.command()
@@ -273,6 +361,9 @@ class Farming(commands.Cog):
         user = get_user_data(user_id, data)
         # Handle case where preferred_biome doesn't exist in user data
         preferred_biome = user.get("preferred_biome")
+
+        # Get current growth multiplier for progress calculation
+        growth_multiplier = self.get_growth_speed_multiplier(user, now)
 
         # If no biome specified, try to use preferred biome
         if not biome and preferred_biome:
@@ -320,24 +411,6 @@ class Farming(commands.Cog):
             await ctx.send(embed=embed)
             return
 
-        # Validate biome
-        biome = biome.lower()
-        if biome not in BiomeConfig.BIOMES:
-            await ctx.send(embed=error_embed(
-                "❌ Invalid Biome",
-                f"Available biomes:\n" + 
-                "\n".join([f"{BiomeConfig.BIOMES[b]['emoji']} {b}" for b in BiomeConfig.BIOMES.keys()])
-            ))
-            return
-
-        # Check if biome is unlocked
-        if not user["biomes"][biome]["unlocked"] and biome != "grassland":
-            await ctx.send(embed=error_embed(
-                "🔒 Biome Locked",
-                f"You haven't unlocked the {biome} biome yet!\nUse `!shop biomes` to view unlock costs."
-            ))
-            return
-
         # Show specific biome garden
         plantings = []
         biome_data = BiomeConfig.BIOMES[biome]
@@ -345,13 +418,15 @@ class Farming(commands.Cog):
         for planting_id, details in user["plantings"][biome].items():
             seed_type = details["seed_type"]
             crop_name = seed_type.replace("_seed", "")
-            elapsed = now - details["start_time"]
-            remaining = details["duration"] - elapsed
             
-            if remaining <= 0:
+            # Calculate progress using dynamic growth speed
+            progress = self.calculate_growth_progress(details, now, growth_multiplier)
+            
+            if progress >= 1.0:
                 status = "✅ Ready to harvest!"
             else:
-                status = f"⏳ {int(remaining)}s remaining"
+                remaining = int((1.0 - progress) * details["duration"] / growth_multiplier)
+                status = f"⏳ {remaining}s remaining"
             
             plantings.append(
                 f"{EmojiConfig.EMOJI_MAP[crop_name]} {crop_name.title()} x{details['amount']} - {status}"
@@ -370,6 +445,20 @@ class Farming(commands.Cog):
             value=f"{used_capacity}/{current_capacity} plots used",
             inline=False
         )
+        
+        # Show active effects if any
+        active_effects = self.get_active_effects(user, now)
+        if active_effects:
+            effects_text = []
+            for effect in active_effects.values():
+                remaining = int(effect["end_time"] - now)
+                effects_text.append(f"{effect['emoji']} {effect['name']} - ⏳ {remaining}s")
+            
+            embed.add_field(
+                name="Active Effects",
+                value="\n".join(effects_text),
+                inline=False
+            )
         
         await ctx.send(embed=embed)
 
@@ -471,8 +560,19 @@ class Farming(commands.Cog):
             ))
 
     def get_random_seed(self):
-        """Get a random seed based on rarity tiers."""
+        """Get a random seed based on rarity tiers and luck factor."""
+        user_id = str(self.bot.user.id)  # Get the current user's ID
+        data = load_data()
+        now = time.time()
+        user = get_user_data(user_id, data)
+        
+        # Get current luck factor
+        luck_factor = self.get_current_luck_factor(user, now)
+        
+        # Apply luck factor to roll chances
         roll = random.uniform(0, 100)
+        roll *= luck_factor  # Higher luck means higher effective roll
+        
         cumulative = 0
         selected_tier = None
         
@@ -481,6 +581,10 @@ class Farming(commands.Cog):
             if roll <= cumulative:
                 selected_tier = tier
                 break
+        
+        # If no tier was selected (due to high luck), pick legendary
+        if selected_tier is None:
+            selected_tier = "legendary"
         
         seed = random.choice(SeedConfig.SEEDS[selected_tier]["seeds"])
         return seed, 1, selected_tier
@@ -496,7 +600,10 @@ class Farming(commands.Cog):
         )
         
         for planting_id, details in sorted_plantings:
-            if now - details["start_time"] >= details["duration"]:
+            # Check if crop is ready using dynamic growth calculation
+            growth_progress = self.calculate_growth_progress(details, now, self.get_growth_speed_multiplier(user, now))
+            
+            if growth_progress >= 1.0:  # Crop is ready
                 seed_type = details["seed_type"]
                 crop_name = seed_type.replace("_seed", "")
                 
@@ -507,11 +614,14 @@ class Farming(commands.Cog):
                     "common"
                 )
                 
-                # Calculate yield
+                # Calculate yield with multiplier, considering fertilized status
+                is_fertilized = details.get("is_fertilized", False)
+                yield_multiplier = self.get_yield_multiplier(user, now, is_fertilized)
+                
                 tier_data = CropConfig.CROPS[crop_tier]
                 base = tier_data["base_yield"]
                 extra = random.randint(0, tier_data["max_extra"])
-                total_yield = (base + extra) * details["amount"]
+                total_yield = int((base + extra) * details["amount"] * yield_multiplier)
                 
                 # Check for mutations
                 mutation = None
@@ -562,7 +672,7 @@ class Farming(commands.Cog):
         
         return harvested
 
-    async def plant_all_seeds(self, ctx, biome: str, user_data: dict, data: dict, now: float):
+    async def plant_all_seeds(self, ctx, biome: str, user_data: dict, data: dict, now: float, is_fertilized: bool):
         """Plant all available seeds in a biome, prioritizing rarest seeds first"""
         # Get available planter capacity
         used_capacity = len(user_data["plantings"][biome])
@@ -602,7 +712,8 @@ class Farming(commands.Cog):
                             "seed_type": seed_type,
                             "start_time": now,
                             "duration": SeedConfig.PLANT_TIMES[seed_type],
-                            "amount": 1
+                            "amount": 1,
+                            "is_fertilized": is_fertilized  # Mark if planted during fertilizer effect
                         }
                         spaces_used += 1
                     
@@ -619,12 +730,51 @@ class Farming(commands.Cog):
 
         save_data(data)
         
+        # Add fertilizer status to message if active
+        status_msg = ""
+        if is_fertilized:
+            status_msg = "\nPlanted with Fertilizer effect active!"
+
         # Send success message
         await ctx.send(embed=success_embed(
             f"{BiomeConfig.BIOMES[biome]['emoji']} Mass Planting Success!",
             f"Successfully planted in {biome}:\n" + "\n".join(to_plant) +
-            f"\n\nPlots used: {spaces_used}/{remaining_capacity}"
+            f"\n\nPlots used: {spaces_used}/{remaining_capacity}" +
+            status_msg
         ))
+
+    @commands.command()
+    async def effects(self, ctx):
+        """View your active effects"""
+        user_id = str(ctx.author.id)
+        data = load_data()
+        now = time.time()
+        
+        user = get_user_data(user_id, data)
+        active_effects = self.get_active_effects(user, now)
+        
+        if not active_effects:
+            await ctx.send(embed=error_embed(
+                "🪄 Active Effects",
+                "You have no active effects!"
+            ))
+            return
+        
+        embed = discord.Embed(
+            title="🪄 Active Effects",
+            color=Colors.EMBED
+        )
+        
+        for effect_id, effect in active_effects.items():
+            remaining = int(effect["end_time"] - now)
+            
+            embed.add_field(
+                name=f"{effect['emoji']} {effect['name']}",
+                value=f"⏳ {remaining}s remaining",
+                inline=True
+            )
+        
+        await ctx.send(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(Farming(bot)) 

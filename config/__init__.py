@@ -11,7 +11,8 @@ from .config import (
     SeedConfig,
     CropConfig,
     MutationConfig,
-    EmojiConfig
+    EmojiConfig,
+    ItemConfig
 )
 from .data import DataConfig
 
@@ -24,5 +25,6 @@ __all__ = [
     'CropConfig',
     'MutationConfig',
     'EmojiConfig',
+    'ItemConfig',
     'DataConfig'
 ] 

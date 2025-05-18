@@ -1,5 +1,5 @@
 """
-Configuration module for the Discord Farming Bot.
+Configuration module for The Farmer Discord Bot.
 This module contains all the constants and configuration values used throughout the bot.
 """
 
@@ -16,6 +16,7 @@ class GameConstants:
     CONFIRMATION_TIMEOUT = 30  # seconds
     LEADERBOARD_TIMEOUT = 60  # seconds
     USERS_PER_PAGE = 10
+    BASE_LUCK_FACTOR = 1.0  # Base luck factor for rolls
 
 # Shop configuration
 class ShopConfig:
@@ -30,13 +31,54 @@ class ShopConfig:
             "name": "Items Shop",
             "emoji": "🛍️",
             "color": 0x9B59B6,  # Purple
-            "description": "Various items to help with your farming!"
+            "description": "Various items to help with farming!"
         },
         "biomes": {
             "name": "Biome Shop",
             "emoji": "🌍",
             "color": 0x3498DB,  # Blue
             "description": "Unlock new biomes to expand your farming empire!"
+        }
+    }
+
+# Item configuration
+class ItemConfig:
+    ITEMS = {
+        "watering_can": {
+            "name": "Watering Can",
+            "shop_name": "x5 Watering Can",
+            "emoji": "🚿",
+            "price": 100,
+            "description": "Makes ALL crops grow 50% faster while active",
+            "effect": {
+                "type": "growth_speed",
+                "multiplier": 1.5,
+                "duration": 60  # 1 minute in seconds
+            }
+        },
+        "fertilizer": {
+            "name": "Fertilizer",
+            "shop_name": "x3 Fertilizer",
+            "emoji": "🌱",
+            "price": 150,
+            "description": "Increases ALL crop yields by 25% while active",
+            "effect": {
+                "type": "yield_boost",
+                "multiplier": 1.25,
+                "duration": 300  # 5 minutes in seconds
+            }
+        },
+        "magnifying_glass": {
+            "name": "Magnifying Glass",
+            "shop_name": "Magnifying Glass",
+            "emoji": "🔍",
+            "price": 250,
+            "description": "Increases roll luck by 50% for 10 minutes",
+            "effect": {
+                "type": "luck_boost",
+                "multiplier": 1.5,
+                "duration": 600  # 10 minutes in seconds
+            }
         }
     }
 

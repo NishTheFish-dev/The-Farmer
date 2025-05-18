@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from utils.database import load_data, save_data, get_user_data
-from config import CropConfig, MutationConfig, EmojiConfig
+from config import CropConfig, MutationConfig, EmojiConfig, ItemConfig
 from utils.embeds import error_embed, success_embed, confirmation_embed
 
 class Inventory(commands.Cog):
@@ -36,6 +36,25 @@ class Inventory(commands.Cog):
         embed.add_field(
             name="💰 Balance",
             value=f"${balance:,}",
+            inline=False
+        )
+        
+        # Items Section
+        if "items" not in user_data:
+            user_data["items"] = {}
+        
+        items_lines = []
+        for item_name, quantity in user_data["items"].items():
+            if item_name in ItemConfig.ITEMS:
+                item = ItemConfig.ITEMS[item_name]
+                items_lines.append(
+                    f"{item['emoji']} {item['name']}: {quantity}\n"
+                    f"└ {item['description']}"
+                )
+        
+        embed.add_field(
+            name="🛠️ Items",
+            value="\n".join(items_lines) if items_lines else "No items",
             inline=False
         )
         

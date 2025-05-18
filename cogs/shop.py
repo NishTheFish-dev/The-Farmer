@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from utils.database import load_data, save_data, get_user_data
-from config import ShopConfig, BiomeConfig, GameConstants
+from config import ShopConfig, BiomeConfig, GameConstants, ItemConfig
 from utils.embeds import error_embed, success_embed
 
 class Shop(commands.Cog):
@@ -14,6 +14,10 @@ class Shop(commands.Cog):
         user_id = str(ctx.author.id)
         data = load_data()
         user = get_user_data(user_id, data)
+
+        # Initialize items inventory if it doesn't exist
+        if "items" not in user:
+            user["items"] = {}
 
         # Main shop page
         if not page:
@@ -46,11 +50,26 @@ class Shop(commands.Cog):
 
         # Items shop page
         if page == "items":
-            await ctx.send(embed=discord.Embed(
+            embed = discord.Embed(
                 title=f"{ShopConfig.PAGES['items']['emoji']} {ShopConfig.PAGES['items']['name']}",
-                description="No items available yet!",
+                description=ShopConfig.PAGES['items']['description'],
                 color=ShopConfig.PAGES['items']['color']
-            ))
+            )
+            
+            for item_id, item in ItemConfig.ITEMS.items():
+                owned = user["items"].get(item_id, 0)
+                embed.add_field(
+                    name=f"{item['emoji']} {item['shop_name']} (${item['price']:,})",
+                    value=(
+                        f"{item['description']}\n"
+                        f"Duration: {item['effect']['duration']}s\n"
+                        f"Owned: {owned}\n"
+                        f"Buy: `!buy item {item_id}`"
+                    ),
+                    inline=False
+                )
+            
+            await ctx.send(embed=embed)
             return
 
         # Biomes shop page
@@ -134,20 +153,74 @@ class Shop(commands.Cog):
             await ctx.send(embed=embed)
 
     @commands.command()
-    async def buy(self, ctx, biome: str = None, item: str = None):
+    async def buy(self, ctx, category: str = None, item: str = None):
         """Buy items and upgrades"""
         user_id = str(ctx.author.id)
         data = load_data()
         user = get_user_data(user_id, data)
 
-        if not biome:
+        # Initialize items inventory if it doesn't exist
+        if "items" not in user:
+            user["items"] = {}
+
+        if not category:
             await ctx.send(embed=error_embed(
                 "❌ Missing Arguments",
-                "**Usage:**\n`!buy <biome>` - Unlock a biome\n`!buy <biome> capacity` - Upgrade biome capacity"
+                "**Usage:**\n"
+                "`!buy <biome>` - Unlock a biome\n"
+                "`!buy <biome> capacity` - Upgrade biome capacity\n"
+                "`!buy item <item_name>` - Purchase an item"
             ))
             return
 
-        biome = biome.lower()
+        # Handle item purchases
+        if category.lower() == "item":
+            if not item:
+                await ctx.send(embed=error_embed(
+                    "❌ Missing Item",
+                    "Please specify which item to buy!\nUse `!shop items` to see available items."
+                ))
+                return
+
+            item = item.lower()
+            if item not in ItemConfig.ITEMS:
+                await ctx.send(embed=error_embed(
+                    "❌ Invalid Item",
+                    "That item doesn't exist!\nUse `!shop items` to see available items."
+                ))
+                return
+
+            item_data = ItemConfig.ITEMS[item]
+            cost = item_data["price"]
+
+            if user["balance"] < cost:
+                await ctx.send(embed=error_embed(
+                    "❌ Insufficient Funds",
+                    f"You need ${cost:,} to buy this item!\nYou have: ${user['balance']:,}"
+                ))
+                return
+
+            # Process purchase
+            user["balance"] -= cost
+            # Get quantity from shop name (e.g., "x5" -> 5)
+            quantity = 1
+            if "x" in item_data["shop_name"]:
+                quantity = int(item_data["shop_name"].split("x")[1].split()[0])
+            user["items"][item] = user["items"].get(item, 0) + quantity
+            save_data(data)
+
+            await ctx.send(embed=success_embed(
+                f"{item_data['emoji']} Item Purchased!",
+                f"You bought {item_data['shop_name']}!\n\n"
+                f"**Balance:** ${user['balance']:,}\n"
+                f"**Effect:** {item_data['description']}\n"
+                f"**Duration:** {item_data['effect']['duration']} seconds\n\n"
+                "Use `!use <item_name>` to use this item!"
+            ))
+            return
+
+        # Handle biome purchases
+        biome = category.lower()
         if biome not in BiomeConfig.BIOMES:
             await ctx.send(embed=error_embed(
                 "❌ Invalid Biome",

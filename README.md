@@ -35,7 +35,26 @@ A Discord bot that lets you experience the wonders of farming!
 
 ## Version History
 
-### Version 1.1.1 (Current)
+### Version 1.2.1 (Current)
+- Improved item effects system:
+  - Watering Can now dynamically affects all growing crops
+  - Fertilizer effect now permanently marks affected crops
+  - Simplified item names and UI elements
+- Updated shop display to show bundle quantities separately
+- Improved effect status messages and clarity
+
+### Version 1.2.0
+- Added new consumable items system:
+  - 🚿 Watering Can: Makes crops grow 50% faster
+  - 🌱 Fertilizer: Increases crop yields by 25%
+  - 🔍 Magnifying Glass: Increases roll luck by 50%
+- Added new commands:
+  - `!use <item>` - Use items from your inventory
+  - `!effects` - View your active effects
+- Improved shop system with items category
+- Added luck factor system for better rolls
+
+### Version 1.1.1
 - Added new command for planting `!plant <biome> all`
   - Plants all available seeds in order of rarity
   - Works with preferred biome using `!plant all`

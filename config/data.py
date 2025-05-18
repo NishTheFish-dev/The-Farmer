@@ -1,5 +1,5 @@
 """
-Data configuration for The Farmer.
+Data configuration for The Farmer Discord Bot.
 This module contains data-related configuration like file paths and database settings.
 """
 
