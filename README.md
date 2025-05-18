@@ -35,7 +35,12 @@ A Discord bot that lets you experience the wonders of farming!
 
 ## Version History
 
-### Version 1.1.0 (Current)
+### Version 1.1.1 (Current)
+- Added new command for planting `!plant <biome> all`
+  - Plants all available seeds in order of rarity
+  - Works with preferred biome using `!plant all`
+
+### Version 1.1.0
 - Added `!set` and `!unset` commands for preferred biome management
 - Updated loot tables for better game balance
 - Quality of life improvements for planting commands
