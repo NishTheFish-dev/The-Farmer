@@ -34,6 +34,23 @@ class Help(commands.Cog):
             inline=False
         )
 
+        # Skills & XP
+        skills_commands = (
+            "`!skills` - View your current skills and XP\n"
+            "`!upgrade <skill>` - Upgrade a skill using XP\n"
+            "  Available skills:\n"
+            "  • `grow_rate` - Increase grow rate by 0.5% per level (max 10%)\n"
+            "  • `crop_yield` - Increase crop yield by 0.5% per level (max 10%)\n"
+            "  • `roll_luck` - Increase roll luck by 1% per level (max 20%)\n"
+            "  • `xp_per_harvest` - Increase XP per harvest by 0.5 per level (max +5)\n"
+            "  Example: `!upgrade grow_rate`"
+        )
+        embed.add_field(
+            name="✨ Skills & XP",
+            value=skills_commands,
+            inline=False
+        )
+
         # Shop & Upgrades
         shop_commands = (
             "`!shop` - View the main shop\n"

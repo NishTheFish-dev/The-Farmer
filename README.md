@@ -5,25 +5,35 @@ A Discord bot that lets you experience the wonders of farming!
 ## Features
 
 ### Core Farming System
-- 🌱 Plant and harvest various crops with different growth times
-- 🌟 Chance for special mutations that increase crop value
-- 🌍 Multiple biomes to unlock and farm in
-- ⏰ Real-time growth system
+- Plant and harvest various crops with different growth times
+- Chance for special mutations that increase crop value
+- Multiple biomes to unlock and farm in
+- Real-time growth system
 
 ### Economy & Trading
-- 💰 Dynamic economy system with crop selling
-- 🏪 Shop system for purchasing seeds and upgrades
-- 📊 Wealth leaderboard to compete with other farmers
+- Dynamic economy system with crop selling
+- Shop system for purchasing seeds and upgrades
+- Wealth leaderboard to compete with other farmers
 
 ### Inventory Management
-- 🎒 Personal inventory system for crops and seeds
-- 📦 Biome-specific planting slots
-- 🔄 Automatic crop collection
+- Personal inventory system for crops and seeds
+- Biome-specific planting slots
+- Categorized, itemized interface
 
 ### User Interface
-- 🎮 Interactive button-based controls
-- 📱 Clean and intuitive embed menus
-- ❓ Comprehensive help system
+- Interactive button-based controls
+- Clean and intuitive embed menus
+- Comprehensive help system
+
+### Skill Tree System
+- XP gained from harvesting crops
+- Four upgradeable skills:
+  - Grow Rate: Increases crop growth speed
+  - Crop Yield: Increases crop yield
+  - Roll Luck: Increases chance for better seeds
+  - XP per Harvest: Increases XP gained
+- Skill levels and effects
+- XP-based progression
 
 ## Commands
 
@@ -32,10 +42,20 @@ A Discord bot that lets you experience the wonders of farming!
 - `!inventory` - Check your items and crops
 - `!shop` - Browse and purchase items
 - `!leaderboard` - View the wealthiest farmers
+- `!skills` - View your skills and XP
+- `!upgrade <skill>` - Upgrade a skill using XP
 
 ## Version History
 
-### Version 1.2.1 (Current)
+### Version 1.3.0 (Current)
+- Added skill tree system with XP progression
+- New skills: Grow Rate, Crop Yield, Roll Luck, and XP per Harvest
+- XP gained from harvesting crops
+- Skill shortcuts for easier upgrading
+- Improved inventory system
+- Fixed various bugs and improved error handling
+
+### Version 1.2.1
 - Improved item effects system:
   - Watering Can now dynamically affects all growing crops
   - Fertilizer effect now permanently marks affected crops
@@ -45,9 +65,9 @@ A Discord bot that lets you experience the wonders of farming!
 
 ### Version 1.2.0
 - Added new consumable items system:
-  - 🚿 Watering Can: Makes crops grow 50% faster
-  - 🌱 Fertilizer: Increases crop yields by 25%
-  - 🔍 Magnifying Glass: Increases roll luck by 50%
+  - Watering Can: Makes crops grow 50% faster
+  - Fertilizer: Increases crop yields by 25%
+  - Magnifying Glass: Increases roll luck by 50%
 - Added new commands:
   - `!use <item>` - Use items from your inventory
   - `!effects` - View your active effects

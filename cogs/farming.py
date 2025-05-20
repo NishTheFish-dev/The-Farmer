@@ -36,10 +36,16 @@ class Farming(commands.Cog):
         return user_data["active_effects"]
 
     def get_current_luck_factor(self, user_data: dict, now: float) -> float:
-        """Calculate current luck factor based on active effects"""
+        """Calculate current luck factor based on active effects and skills"""
         luck_factor = GameConstants.BASE_LUCK_FACTOR
         active_effects = self.get_active_effects(user_data, now)
         
+        # Apply skill bonus
+        if "skills" in user_data and "roll_luck" in user_data["skills"]:
+            skill_level = user_data["skills"]["roll_luck"]
+            luck_factor *= (1 + min(skill_level * 0.01, 0.20))  # 1% per level, max 20%
+        
+        # Apply active effects
         for effect in active_effects.values():
             if effect["type"] == "luck_boost":
                 luck_factor *= effect["multiplier"]
@@ -47,12 +53,16 @@ class Farming(commands.Cog):
         return luck_factor
 
     def get_growth_speed_multiplier(self, user_data: dict, now: float) -> float:
-        """Calculate current growth speed multiplier based on active effects"""
+        """Calculate current growth speed multiplier based on active effects and skills"""
         multiplier = 1.0
         active_effects = self.get_active_effects(user_data, now)
         
-        # For growth speed, we only care if there's at least one active effect
-        # This makes it dynamic regardless of when crops were planted
+        # Apply skill bonus
+        if "skills" in user_data and "grow_rate" in user_data["skills"]:
+            skill_level = user_data["skills"]["grow_rate"]
+            multiplier *= (1 + min(skill_level * 0.005, 0.10))  # 0.5% per level, max 10%
+        
+        # Apply active effects
         for effect in active_effects.values():
             if effect["type"] == "growth_speed":
                 multiplier = max(multiplier, effect["multiplier"])
@@ -69,8 +79,13 @@ class Farming(commands.Cog):
         return False
 
     def get_yield_multiplier(self, user_data: dict, now: float, is_fertilized: bool = False) -> float:
-        """Calculate current yield multiplier based on active effects and fertilized status"""
+        """Calculate current yield multiplier based on active effects, fertilized status, and skills"""
         multiplier = 1.0
+        
+        # Apply skill bonus
+        if "skills" in user_data and "crop_yield" in user_data["skills"]:
+            skill_level = user_data["skills"]["crop_yield"]
+            multiplier *= (1 + min(skill_level * 0.005, 0.10))  # 0.5% per level, max 10%
         
         # If the crop was fertilized when planted, always apply the fertilizer multiplier
         if is_fertilized:
@@ -95,6 +110,17 @@ class Farming(commands.Cog):
         effective_elapsed = elapsed * growth_multiplier
         
         return effective_elapsed / base_duration
+
+    def calculate_xp_gain(self, user_data: dict, seed_amount: int) -> float:
+        """Calculate XP gain from harvesting crops (1 XP per seed planted)"""
+        base_xp = 1.0  # Base XP per seed planted
+        
+        # Apply XP per harvest skill bonus
+        if "skills" in user_data and "xp_per_harvest" in user_data["skills"]:
+            skill_level = user_data["skills"]["xp_per_harvest"]
+            base_xp += min(skill_level * 0.5, 5.0)  # +0.5 per level, max +5
+        
+        return base_xp * seed_amount
 
     @commands.command()
     async def set(self, ctx, biome: str = None):
@@ -374,7 +400,7 @@ class Farming(commands.Cog):
             embed = discord.Embed(
                 title=f"🌱 {ctx.author.display_name}'s Gardens Overview",
                 description="Select a biome to view detailed plantings:",
-                color=discord.Color.blue()
+                color=Colors.EMBED
             )
             
             for biome_name, biome_data in BiomeConfig.BIOMES.items():
@@ -464,17 +490,15 @@ class Farming(commands.Cog):
 
     @commands.command()
     async def harvest(self, ctx, biome: str = None):
-        """Harvest all ready crops from all biomes or a specific biome"""
+        """Harvest your crops"""
         user_id = str(ctx.author.id)
         data = load_data()
         now = time.time()
         
         user = get_user_data(user_id, data)
         
-        # If no biome specified, harvest from all biomes
-        biomes_to_harvest = []
+        # Handle biome selection
         if biome:
-            # Validate biome
             biome = biome.lower()
             if biome not in BiomeConfig.BIOMES:
                 await ctx.send(embed=error_embed(
@@ -483,81 +507,55 @@ class Farming(commands.Cog):
                     "\n".join([f"{BiomeConfig.BIOMES[b]['emoji']} {b}" for b in BiomeConfig.BIOMES.keys()])
                 ))
                 return
-            
-            # Check if biome is unlocked
-            if not user["biomes"][biome]["unlocked"] and biome != "grassland":
+        else:
+            biome = user.get("preferred_biome")
+            if not biome:
                 await ctx.send(embed=error_embed(
-                    "🔒 Biome Locked",
-                    f"You haven't unlocked the {biome} biome yet!\nUse `!shop biomes` to view unlock costs."
+                    "❌ No Biome Specified",
+                    "Please specify a biome or set a preferred biome using `!set <biome>`"
                 ))
                 return
-            
-            biomes_to_harvest = [biome]
-        else:
-            # Get all unlocked biomes
-            biomes_to_harvest = [b for b, data in user["biomes"].items() 
-                               if data["unlocked"] or b == "grassland"]
-        
-        # Check all biomes for ready crops
-        ready_crops = {}
-        for b in biomes_to_harvest:
-            harvested = await self.harvest_from_biome(user, b, now)
-            if harvested:
-                ready_crops[b] = harvested
-        
-        if not ready_crops:
+
+        # Check if biome is unlocked
+        if not user["biomes"][biome]["unlocked"] and biome != "grassland":
             await ctx.send(embed=error_embed(
-                "❌ Nothing to Harvest",
-                "No crops are ready to harvest yet!" +
-                (f" in {biome}" if biome else "")
+                "🔒 Biome Locked",
+                f"You haven't unlocked the {biome} biome yet!\nUse `!shop biomes` to view unlock costs."
             ))
             return
+
+        # Harvest crops
+        harvested, total_xp_gained = await self.harvest_from_biome(user, biome, now)
         
-        # Create harvest summary
-        summary_lines = []
-        for b, crops in ready_crops.items():
-            summary_lines.append(f"\n**{BiomeConfig.BIOMES[b]['emoji']} {b.title()}:**")
-            summary_lines.extend([f"  {crop}" for crop in crops])
-        
-        # Send confirmation message
-        confirm_msg = await ctx.send(embed=confirmation_embed(
-            "🌾 Ready to Harvest!",
-            f"The following crops are ready to harvest:\n" + "\n".join(summary_lines) +
-            "\n\nReact with ✅ to harvest all crops!"
-        ))
-        await confirm_msg.add_reaction("✅")
-        await confirm_msg.add_reaction("❌")
-
-        def check(reaction, user):
-            return user == ctx.author and str(reaction.emoji) in ["✅", "❌"]
-
-        try:
-            reaction, _ = await self.bot.wait_for(
-                "reaction_add", 
-                timeout=GameConstants.CONFIRMATION_TIMEOUT,
-                check=check
-            )
-            
-            if str(reaction.emoji) == "✅":
-                # Process the harvest
-                save_data(data)
-                
-                await ctx.send(embed=success_embed(
-                    "🌾 Harvest Complete!",
-                    f"Successfully harvested:\n" + "\n".join(summary_lines) +
-                    "\n\nUse `!inv` to view your harvested crops!"
-                ))
-            else:
-                await ctx.send(embed=error_embed(
-                    "❌ Harvest Cancelled",
-                    "Your crops remain in the garden."
-                ))
-
-        except TimeoutError:
+        if not harvested:
             await ctx.send(embed=error_embed(
-                "⏳ Harvest Expired",
-                f"Confirmation timed out after {GameConstants.CONFIRMATION_TIMEOUT} seconds."
+                "🌱 Nothing to Harvest",
+                f"You don't have any ready crops in the {biome} biome!"
             ))
+            return
+
+        # Create harvest message
+        summary_lines = []
+        for item in harvested:
+            summary_lines.append(
+                f"{EmojiConfig.EMOJI_MAP[item['crop']]} {item['crop'].replace('_', ' ').title()} x{item['amount']}"
+            )
+
+        embed = discord.Embed(
+            title=f"{BiomeConfig.BIOMES[biome]['emoji']} Harvest Complete!",
+            description=f"Successfully harvested:\n" + "\n".join(summary_lines),
+            color=Colors.EMBED
+        )
+
+        if total_xp_gained > 0:
+            embed.add_field(
+                name="✨ XP Gained",
+                value=f"{total_xp_gained:.1f}",
+                inline=False
+            )
+
+        save_data(data)
+        await ctx.send(embed=embed)
 
     def get_random_seed(self):
         """Get a random seed based on rarity tiers and luck factor."""
@@ -590,87 +588,60 @@ class Farming(commands.Cog):
         return seed, 1, selected_tier
 
     async def harvest_from_biome(self, user, biome, now):
-        """Harvest all ready crops from a specific biome."""
+        """Harvest crops from a specific biome"""
+        plantings = user["plantings"][biome]
         harvested = []
-        
-        # Sort plantings by start time to ensure we harvest earliest first
-        sorted_plantings = sorted(
-            user["plantings"][biome].items(),
-            key=lambda x: x[1]["start_time"]
-        )
-        
-        for planting_id, details in sorted_plantings:
-            # Check if crop is ready using dynamic growth calculation
-            growth_progress = self.calculate_growth_progress(details, now, self.get_growth_speed_multiplier(user, now))
-            
-            if growth_progress >= 1.0:  # Crop is ready
-                seed_type = details["seed_type"]
-                crop_name = seed_type.replace("_seed", "")
-                
-                # Find crop rarity
+        total_xp_gained = 0
+
+        # Initialize inventory if it doesn't exist
+        if "inventory" not in user:
+            user["inventory"] = {}
+
+        for planting_id, planting in list(plantings.items()):
+            if self.calculate_growth_progress(planting, now, self.get_growth_speed_multiplier(user, now)) >= 1.0:
+                seed_type = planting["seed_type"]
+                crop_type = seed_type.replace("_seed", "")
+                amount = planting["amount"]
+                is_fertilized = planting.get("is_fertilized", False)
+
+                # Find crop tier and base yield
                 crop_tier = next(
                     (tier for tier, values in CropConfig.CROPS.items() 
-                     if crop_name in values["crops"]),
-                    "common"
+                     if crop_type in values["crops"]),
+                    "common"  # Default to common if not found
                 )
-                
-                # Calculate yield with multiplier, considering fertilized status
-                is_fertilized = details.get("is_fertilized", False)
+                base_yield = CropConfig.CROPS[crop_tier]["base_yield"]
                 yield_multiplier = self.get_yield_multiplier(user, now, is_fertilized)
-                
-                tier_data = CropConfig.CROPS[crop_tier]
-                base = tier_data["base_yield"]
-                extra = random.randint(0, tier_data["max_extra"])
-                total_yield = int((base + extra) * details["amount"] * yield_multiplier)
-                
-                # Check for mutations
-                mutation = None
-                mutation_roll = random.uniform(0, 100)
-                cumulative_chance = 0
-                
-                for mut_type, mut_data in MutationConfig.MUTATIONS.items():
-                    cumulative_chance += mut_data["chance"]
-                    if mutation_roll <= cumulative_chance:
-                        mutation = mut_type
-                        break
-                
-                # Initialize inventory structure if needed
-                if crop_name not in user["inventory"]:
-                    user["inventory"][crop_name] = 0
-                
-                # Convert old integer structure to new dict structure if needed
-                if isinstance(user["inventory"][crop_name], int):
-                    old_amount = user["inventory"][crop_name]
-                    user["inventory"][crop_name] = {
-                        "amount": old_amount,
-                        "mutations": {}
-                    }
-                
-                # Update inventory with mutation information
-                if mutation:
-                    if "mutations" not in user["inventory"][crop_name]:
-                        user["inventory"][crop_name]["mutations"] = {}
-                    if mutation not in user["inventory"][crop_name]["mutations"]:
-                        user["inventory"][crop_name]["mutations"][mutation] = 0
-                    user["inventory"][crop_name]["mutations"][mutation] += total_yield
-                    harvested.append(
-                        f"{MutationConfig.MUTATIONS[mutation]['emoji']} {mutation.title()} {crop_name.title()} x{total_yield}"
-                    )
-                else:
-                    if isinstance(user["inventory"][crop_name], dict):
-                        user["inventory"][crop_name]["amount"] += total_yield
-                    else:
-                        user["inventory"][crop_name] = {
-                            "amount": total_yield,
-                            "mutations": {}
-                        }
-                    harvested.append(
-                        f"{EmojiConfig.EMOJI_MAP[crop_name]} {crop_name.title()} x{total_yield}"
-                    )
-                
-                del user["plantings"][biome][planting_id]
-        
-        return harvested
+                final_yield = int(base_yield * amount * yield_multiplier)
+
+                # Initialize crop in inventory if it doesn't exist
+                if crop_type not in user["inventory"]:
+                    user["inventory"][crop_type] = {"amount": 0, "mutations": {}}
+                elif isinstance(user["inventory"][crop_type], int):
+                    # Convert old format to new format
+                    old_amount = user["inventory"][crop_type]
+                    user["inventory"][crop_type] = {"amount": old_amount, "mutations": {}}
+
+                # Add to inventory
+                user["inventory"][crop_type]["amount"] += final_yield
+
+                # Calculate and add XP (1 XP per seed planted)
+                xp_gained = self.calculate_xp_gain(user, amount)  # Pass amount instead of final_yield
+                if "xp" not in user:
+                    user["xp"] = 0
+                user["xp"] += xp_gained
+                total_xp_gained += xp_gained
+
+                harvested.append({
+                    "crop": crop_type,
+                    "amount": final_yield,
+                    "xp": xp_gained
+                })
+
+                # Remove the planting
+                del plantings[planting_id]
+
+        return harvested, total_xp_gained
 
     async def plant_all_seeds(self, ctx, biome: str, user_data: dict, data: dict, now: float, is_fertilized: bool):
         """Plant all available seeds in a biome, prioritizing rarest seeds first"""
