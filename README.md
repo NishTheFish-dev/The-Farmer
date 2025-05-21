@@ -47,7 +47,13 @@ A Discord bot that lets you experience the wonders of farming!
 
 ## Version History
 
-### Version 1.3.0 (Current)
+### Version 1.3.1 (Current)
+- Added global rate limiting system:
+  - Limits users to 10 commands per 8 seconds
+- Improved command error handling
+- Fixed various bugs and performance issues
+
+### Version 1.3.0
 - Added skill tree system with XP progression
 - New skills: Grow Rate, Crop Yield, Roll Luck, and XP per Harvest
 - XP gained from harvesting crops
@@ -100,7 +106,6 @@ A Discord bot that lets you experience the wonders of farming!
 
 - More crops for the other biomes
 - Daily rewards and quests
-- XP system and Skill tree
 - Random events
 
 ## Contributing
